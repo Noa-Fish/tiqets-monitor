@@ -2,29 +2,45 @@ name: Monitor Tiqets
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # toutes les 5 minutes
+    - cron: '*/5 * * * *' # toutes les 5 minutes
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tiqets-monitor
+  cancel-in-progress: false
 
 jobs:
   check:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Check availability
         env:
           TIQETS_COOKIE: ${{ secrets.TIQETS_COOKIE }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          STATE_FILE: state.json
+          STATE_FILE: data/state.json
         run: |
+          set -euo pipefail
+
           git config user.name "tiqets-monitor-bot"
           git config user.email "tiqets-monitor-bot@users.noreply.github.com"
 
-          # Exécuter le script de monitoring
           bash ./monitor-tiqets.sh
 
-          # Commit/push des changements (state.json, data, etc.)
-          git add data/ state.json || true
-          git diff --staged --quiet || git commit -m "chore(data): update Tiqets monitor"
-          git push || true
+          git add data/state.json
+
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: update Tiqets monitor state"
+            git push origin main
+          else
+            echo "Aucun changement d'état à pousser."
+          fi

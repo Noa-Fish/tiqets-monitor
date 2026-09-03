@@ -10,4 +10,4 @@ output/*.json
 !output/.gitkeep
 
 # Env
-.env
+*.env
